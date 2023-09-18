@@ -1,29 +1,40 @@
-import paho.mqtt.client as mqtt
+from datetime import datetime
 import json
-from realtimeGraph.views import get_or_create_user, get_or_create_location, get_or_create_sensor, create_sensorData
+import paho.mqtt.client as mqtt
+from django.conf import settings
+from . import utils
 
-broker_address = "localhost"
-broker_port = 8080
-topic = "#"
+def on_message(client: mqtt.Client, userdata, message: mqtt.MQTTMessage):
+    
+    try:
+        time = datetime.now()
+        payload = message.payload.decode("utf-8")
+        print("payload: " + payload)
+        payloadJson = json.loads(payload)
+        country, state, city, user = utils.get_topic_data(message.topic)
+        user_obj = utils.get_user(user)
+        location_obj = utils.get_or_create_location(city, state, country)
+        for measure in payloadJson:
+            variable = measure
+            unit = utils.get_units(str(variable).lower())
+            variable_obj = utils.get_or_create_measurement(variable, unit)
+            sensor_obj = utils.get_or_create_station(user_obj, location_obj)
+            utils.create_data(float(payloadJson[measure]), sensor_obj, variable_obj, time)
+    except Exception as e:
+        print('Ocurrió un error procesando el paquete MQTT', e)
 
-def on_message(client, userdata, message):
- payload = message.payload.decode("utf-8")
- payloadJson = json.loads(payload)
- print("Message=", payloadJson)
- topic = message.topic.split('/')
- print(topic)
- user = topic[2]
- location = topic[1]
- variable = topic[0]
- user_obj = get_or_create_user(user)
- location_obj = get_or_create_location(location)
- sensor_obj = get_or_create_sensor(variable, user_obj, location_obj)
- create_sensorData(sensor_obj, payloadJson["value"])
- #variable = get_variable(topic[2])
- #create_measurement_object("temperature", payloadJson["value"])
+def on_disconnect(client: mqtt.Client, userdata, rc):
+    '''
+    Función que se ejecuta cuando se desconecta del broker.
+    Intenta reconectar al bróker.
+    '''
+    print("Desconectado con mensaje:" + str(mqtt.connack_string(rc)))
+    print("Reconectando...")
+    client.reconnect()
 
-print("MQTT Start")
-client = mqtt.Client('')
-client.on_message = on_message
-client.connect(broker_address, broker_port, 60)
-client.subscribe(topic)
+def start_mqtt():
+    '''
+    Inicia el cliente MQTT y se conecta al broker.
+    '''
+    client = mqtt.Client()
+    client.on

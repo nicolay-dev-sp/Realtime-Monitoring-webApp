@@ -29,3 +29,17 @@ class SensorData(models.Model):
 
     def __str__(self):
         return '{}'.format(self.value)
+    
+class Measurement(models.Model):
+    # Campos existentes
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    temperature = models.FloatField()
+    humidity = models.FloatField()
+    timestamp = models.DateTimeField()
+
+    # Nuevos campos para el evento
+    event_condition = models.CharField(max_length=100)
+    event_action = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"Measurement - User: {self.user}, Temperature: {self.temperature}, Humidity: {self.humidity}"
